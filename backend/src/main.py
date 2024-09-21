@@ -8,7 +8,7 @@ from src.Api.api import Api
 app = FastAPI()
 
 
-DOWNLOAD_FOLDER = Path("../../downloaded_pdfs")
+DOWNLOAD_FOLDER = Path("../downloaded_pdfs")
 DOWNLOAD_FOLDER.mkdir(exist_ok=True)
 
 async def download_pdf(pdf_url: str, filename: str):
