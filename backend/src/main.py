@@ -1,14 +1,25 @@
 import os
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+
 from pathlib import Path
 import aiohttp
 from src.Api.api import Api 
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # for frontend
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-DOWNLOAD_FOLDER = Path("../downloaded_pdfs")
+
+DOWNLOAD_FOLDER = Path("../Media")
 DOWNLOAD_FOLDER.mkdir(exist_ok=True)
 
 async def download_pdf(pdf_url: str, filename: str):
@@ -25,18 +36,33 @@ async def download_pdf(pdf_url: str, filename: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error occurred: {str(e)}")
     
+@app.get("/files")
+async def list_files():
+    try:
+        files = [
+            {"name": file.name, "path": str(file.resolve())}
+            for file in DOWNLOAD_FOLDER.iterdir()
+            if file.is_file() and file.suffix == ".pdf"
+        ]
+        return {"files": files, "status_code": 200}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error occurred: {str(e)}")
     
+@app.get("/file/{file_name}")
+async def get_file(file_name: str):
+    file_path = DOWNLOAD_FOLDER / file_name  
+    if file_path.exists():
+        print("exists")
+        return FileResponse(file_path)
+    raise HTTPException(status_code=404, detail="File not found")
+
+
 
 @app.get("/place-pdf")
 async def download_scihub_pdf(doi: str):
     print(doi)
     try:
-        response, html_content = await Api.get_page(doi)
-        
-        print(f"Response status: {response.status}")
-        print(f"Response headers: {response.headers}")
-        print(f"Response cookies: {response.cookies}")
-        print(f"Content length: {len(html_content)}")
+        _, html_content = await Api.get_page(doi)
         
         if not html_content:
             raise HTTPException(status_code=500, detail="Empty response content")
@@ -49,11 +75,9 @@ async def download_scihub_pdf(doi: str):
             if pdf_url.startswith("//"):
                 pdf_url = "https:" + pdf_url
             pdf_filename = pdf_url.split("/")[-1].split("#")[0]
-            print(f"PDF URL: {pdf_url}")
-            print(f"PDF Filename: {pdf_filename}")
             
             file_path = await download_pdf(pdf_url, pdf_filename)
-            return {"message": "PDF downloaded", "file_path": str(file_path)}
+            return {"message": "PDF downloaded", "file_path": str(file_path), "status_code": 200}
         else:
             raise HTTPException(status_code=404, detail="PDF link not found in the page content")
     
