@@ -1,10 +1,20 @@
 <template>
   <div class="pdf-viewer">
-    <!-- Use the computed pdfUrl instead of hardcoded PDF file name -->
-    <vue-pdf-app style="height: 100vh;" :pdf="pdfUrl" @error="handleError" ></vue-pdf-app>
+    <vue-pdf-app style="height: 100vh;" :pdf="pdfUrl" @error="handleError"></vue-pdf-app>
 
     <!-- Show loading or error message if needed -->
     <div v-if="error" class="error">{{ error }}</div>
+
+    <!-- Button to summarize PDF -->
+    <button @click="summarizePdf" :disabled="loading">
+      {{ loading ? 'Summarizing...' : 'Summarize PDF' }}
+    </button>
+
+    <!-- Display the summary -->
+    <div v-if="summary" class="summary">
+      <h2>Summary:</h2>
+      <p>{{ summary }}</p>
+    </div>
   </div>
 </template>
 
@@ -25,6 +35,8 @@ export default {
   },
   setup(props) {
     const error = ref(null);
+    const summary = ref(null);
+    const loading = ref(false);
 
     const pdfUrl = computed(() => {
       return `http://127.0.0.1:8000/file/${encodeURIComponent(props.filePath)}`;
@@ -35,7 +47,28 @@ export default {
       error.value = 'Failed to load PDF. Please try again.';
     };
 
-   
+    const summarizePdf = async () => {
+      console.log("Summarize PDF button clicked");
+      loading.value = true;
+      error.value = null;
+      summary.value = null;
+
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/summarize/${encodeURIComponent(props.filePath)}`);
+        console.log("Response status:", response.status);
+        if (!response.ok) {
+          throw new Error('Failed to summarize PDF.');
+        }
+        const data = await response.json();
+        console.log("Fetched summary data:", data);
+        summary.value = data.summary;
+      } catch (err) {
+        console.error('Error fetching summary:', err);
+        error.value = 'Failed to summarize PDF. Please try again.';
+      } finally {
+        loading.value = false;
+      }
+    };
 
     onMounted(() => {
       error.value = null;
@@ -45,7 +78,9 @@ export default {
       error,
       pdfUrl,
       handleError,
-      
+      summarizePdf,
+      summary,
+      loading,
     };
   },
 };
@@ -68,5 +103,12 @@ export default {
 
 .error {
   color: #ff4444;
+}
+
+.summary {
+  margin-top: 20px;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
 }
 </style>
