@@ -1,6 +1,6 @@
 import os
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pathlib import Path
@@ -10,7 +10,7 @@ from src.Api.api import Api
 from pgpt_python.client import PrivateGPTApi
 
 app = FastAPI()
-
+summaries_store = {}
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],  # for frontend
@@ -45,22 +45,42 @@ def extract_text_from_pdf(file_path: Path) -> str:
         for page in pdf:
             page_text = page.get_text()
             text += page_text
-            print("Extracted text from page:", page_text)  # Log extracted text from each page
     return text
 
 def split_text_into_chunks(text: str, chunk_size: int = 2048) -> list:
     """Split text into manageable chunks."""
     return [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
 
-async def summarize_text(text: str) -> str:
+
+import concurrent.futures
+def summarize_text(text: str) -> str:
     chunks = split_text_into_chunks(text)
     summaries = []
-    for chunk in chunks:
-        response = pgpt_client.contextual_completions.prompt_completion(prompt=f"Summarize this document:\n{chunk}")
-        if response.choices:
-            summaries.append(response.choices[0].message.content)
-            print(response.choices[0].message.content)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        for chunk in chunks:
+            future = executor.submit(pgpt_client.contextual_completions.prompt_completion, prompt=f"Summarize this document:\n{chunk}")
+            try:
+                response = future.result(timeout=600)  # Set a 10-minute timeout
+                if response.choices:
+                    summaries.append(response.choices[0].message.content)
+                    print(response.choices[0].message.content)
+            except concurrent.futures.TimeoutError:
+                print("Summarization request timed out.")
+                summaries.append("Summarization request timed out.")
+            except Exception as e:
+                print(f"An error occurred during summarization: {str(e)}")
+                summaries.append("An error occurred during summarization.")
     return " ".join(summaries)
+
+async def background_summarize(file_path: Path, file_name: str):
+    text = extract_text_from_pdf(file_path)
+    if not text.strip():
+        raise ValueError("No text extracted from PDF.")
+    summary = await summarize_text(text)
+    # You can store the summary in a database or a temporary file for retrieval
+    print(f"Summary for {file_path.name}: {summary}")
+    summary = await summarize_text(text)
+    summaries_store[file_name] = {"summary": summary, "status": "completed"}
 
 @app.get("/files")
 async def list_files():
@@ -82,22 +102,24 @@ async def get_file(file_name: str):
     raise HTTPException(status_code=404, detail="File not found")
 
 @app.get("/summarize/{file_name}")
-async def summarize_pdf(file_name: str):
+async def summarize_pdf(file_name: str, background_tasks: BackgroundTasks):
     file_path = DOWNLOAD_FOLDER / file_name
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
     
-    try:
-        # Extract and summarize text
-        text = extract_text_from_pdf(file_path)
-        if not text.strip():  # Check if the extracted text is empty
-            raise ValueError("No text extracted from PDF.")
-        
-        summary = await summarize_text(text)
-        return {"summary": summary, "status_code": 200}
+    # Add the summarization task to the background, passing both arguments
+    background_tasks.add_task(background_summarize, file_path, file_name)
     
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during summarization: {str(e)}")
+    return {"message": "Summarization started, you will be notified when it's done.", "status_code": 202}
+
+
+@app.get("/summary/{file_name}")
+async def get_summary(file_name: str):
+    if file_name in summaries_store:
+        return summaries_store[file_name]
+    else:
+        raise HTTPException(status_code=404, detail="Summary not found or still processing.")
+
 
 @app.get("/place-pdf")
 async def download_scihub_pdf(doi: str):

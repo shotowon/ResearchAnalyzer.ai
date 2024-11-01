@@ -48,27 +48,41 @@ export default {
     };
 
     const summarizePdf = async () => {
-      console.log("Summarize PDF button clicked");
-      loading.value = true;
-      error.value = null;
-      summary.value = null;
+  console.log("Summarize PDF button clicked");
+  loading.value = true;
+  error.value = null;
+  summary.value = null;
 
-      try {
-        const response = await fetch(`http://127.0.0.1:8000/summarize/${encodeURIComponent(props.filePath)}`);
-        console.log("Response status:", response.status);
-        if (!response.ok) {
-          throw new Error('Failed to summarize PDF.');
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/summarize/${encodeURIComponent(props.filePath)}`);
+    console.log("Response status:", response.status);
+    if (!response.ok) {
+      throw new Error('Failed to summarize PDF.');
+    }
+    
+    // Polling for the summary
+    const fileName = props.filePath.split('/').pop(); // Extract the filename from path
+    const pollSummary = async () => {
+      const summaryResponse = await fetch(`http://127.0.0.1:8000/summary/${encodeURIComponent(fileName)}`);
+      if (summaryResponse.ok) {
+        const summaryData = await summaryResponse.json();
+        if (summaryData.status === "completed") {
+          summary.value = summaryData.summary;
+        } else {
+          setTimeout(pollSummary, 2000); // Poll again in 2 seconds
         }
-        const data = await response.json();
-        console.log("Fetched summary data:", data);
-        summary.value = data.summary;
-      } catch (err) {
-        console.error('Error fetching summary:', err);
-        error.value = 'Failed to summarize PDF. Please try again.';
-      } finally {
-        loading.value = false;
       }
     };
+
+    pollSummary();
+  } catch (err) {
+    console.error('Error fetching summary:', err);
+    error.value = 'Failed to summarize PDF. Please try again.';
+  } finally {
+    loading.value = false;
+  }
+};
+
 
     onMounted(() => {
       error.value = null;
