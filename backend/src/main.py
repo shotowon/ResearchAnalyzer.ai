@@ -47,40 +47,39 @@ def extract_text_from_pdf(file_path: Path) -> str:
             text += page_text
     return text
 
+
 def split_text_into_chunks(text: str, chunk_size: int = 2048) -> list:
     """Split text into manageable chunks."""
     return [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
 
 
-import concurrent.futures
-def summarize_text(text: str) -> str:
+async def summarize_text(text: str) -> str:
+    
     chunks = split_text_into_chunks(text)
     summaries = []
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    try:
+        
         for chunk in chunks:
-            future = executor.submit(pgpt_client.contextual_completions.prompt_completion, prompt=f"Summarize this document:\n{chunk}")
-            try:
-                response = future.result(timeout=600)  # Set a 10-minute timeout
-                if response.choices:
-                    summaries.append(response.choices[0].message.content)
-                    print(response.choices[0].message.content)
-            except concurrent.futures.TimeoutError:
-                print("Summarization request timed out.")
-                summaries.append("Summarization request timed out.")
-            except Exception as e:
-                print(f"An error occurred during summarization: {str(e)}")
-                summaries.append("An error occurred during summarization.")
+            response = pgpt_client.contextual_completions.prompt_completion(prompt=f"Summarize this document:\n{chunk}")
+            print(response.choices[0].message.content)
+
+            summaries.append(response.choices[0].message.content)
+            return " ".join(summaries)
+       
+    except Exception as e:
+        print(f"An error occurred during summarization: {str(e)}")
+        summaries.append(f"An error occurred during summarization. {str(e)}")
     return " ".join(summaries)
+
 
 async def background_summarize(file_path: Path, file_name: str):
     text = extract_text_from_pdf(file_path)
     if not text.strip():
         raise ValueError("No text extracted from PDF.")
     summary = await summarize_text(text)
-    # You can store the summary in a database or a temporary file for retrieval
-    print(f"Summary for {file_path.name}: {summary}")
-    summary = await summarize_text(text)
     summaries_store[file_name] = {"summary": summary, "status": "completed"}
+
+    print(f"Summary for {file_path.name}: {summary}")
 
 @app.get("/files")
 async def list_files():
