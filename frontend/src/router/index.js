@@ -1,7 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import MainView from '../views/MainView.vue';
+import MainView from '../views/HomeView.vue';
 import FilesView from '../views/FilesView.vue';
 import PdfView from '../views/PdfView.vue';
+import RegistrationView from '../views/RegistrationView.vue';
+import LoginView from '../views/LoginView.vue';
 const routes = [
     
 
@@ -24,6 +26,16 @@ const routes = [
         component: PdfView,
         props: true,
       },
+      {
+        'path': '/register',
+        name: 'RegistrationView',
+        component: RegistrationView
+      }
+      ,
+      {
+        'path': '/login',
+        name: 'LoginView',
+        component: LoginView      },
 
 ]
 
