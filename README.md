@@ -1,4 +1,4 @@
-﻿# ResearchAnalyzer.ai
+﻿# ResearchAnalyzer.ai DIPLOMA
 
 # заходите в backend :
 cd backend
