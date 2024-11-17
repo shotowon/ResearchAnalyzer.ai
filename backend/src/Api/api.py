@@ -25,7 +25,7 @@ class Api:
         "Accept-Language": "en-US,en;q=0.5",
     }
         response, html_content = await Api.request(url, "GET", headers=headers)
-        print(response)
+        
         
         return response, html_content
         

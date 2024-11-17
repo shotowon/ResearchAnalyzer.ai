@@ -1,6 +1,7 @@
 import os
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pathlib import Path
@@ -8,6 +9,49 @@ import aiohttp
 import fitz  # PyMuPDF
 from src.Api.api import Api
 from pgpt_python.client import PrivateGPTApi
+import sqlite3
+
+
+DB_PATH = Path("file_gpt_map.db")
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS file_gpt_map (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT UNIQUE NOT NULL,
+            doc_id TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def insert_mapping(filename: str, doc_id: str):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO file_gpt_map (filename, doc_id) VALUES (?, ?)", (filename, doc_id))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail=f"File '{filename}' already exists in the database.")
+    finally:
+        conn.close()
+
+# Fetch a mapping from the database
+def get_mapping(filename: str):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT doc_id FROM file_gpt_map WHERE filename = ?", (filename,))
+    result = cursor.fetchone()
+    conn.close()
+    if result:
+        return result[0]
+    else:
+        raise HTTPException(status_code=404, detail=f"No mapping found for file '{filename}'.")
+
+# Initialize the database
+init_db()
+
 
 app = FastAPI()
 summaries_store = {}
@@ -118,31 +162,80 @@ async def get_summary(file_name: str):
         return summaries_store[file_name]
     else:
         raise HTTPException(status_code=404, detail="Summary not found or still processing.")
-
-
-@app.get("/place-pdf")
-async def download_scihub_pdf(doi: str):
-    try:
-        _, html_content = await Api.get_page(doi)
-        
-        if not html_content:
-            raise HTTPException(status_code=500, detail="Empty response content")
-        
-        soup = BeautifulSoup(html_content, 'html.parser')
-        embed_tag = soup.find("embed")
-        
-        if embed_tag and 'src' in embed_tag.attrs:
-            pdf_url = embed_tag['src']
-            if pdf_url.startswith("//"):
-                pdf_url = "https:" + pdf_url
-            pdf_filename = pdf_url.split("/")[-1].split("#")[0]
-            
-            file_path = await download_pdf(pdf_url, pdf_filename)
-            return {"message": "PDF downloaded", "file_path": str(file_path), "status_code": 200}
-        else:
-            raise HTTPException(status_code=404, detail="PDF link not found in the page content")
     
-    except aiohttp.ClientError as e:
-        raise HTTPException(status_code=500, detail=f"Request failed: {str(e)}")
+    
+    
+    
+def ingest_file_and_store(file_path: str, filename: str):
+    with open(file_path, "rb") as f:
+        ingested_file_doc_id = pgpt_client.ingestion.ingest_file(file=f, timeout=500).data[0].doc_id
+    print(f"Ingested file doc_id: {ingested_file_doc_id}")
+    insert_mapping(filename, ingested_file_doc_id)
+
+@app.post("/process-pdf")
+async def process_pdf(
+    file: UploadFile = File(None),
+    doi: str = Form(None),
+    background_tasks: BackgroundTasks = None,
+):
+    try:
+        if file and doi:
+            raise HTTPException(status_code=400, detail="Provide either a DOI or a file, not both.")
+        if not file and not doi:
+            raise HTTPException(status_code=400, detail="Provide either a DOI or a file.")
+
+        # Handle File Upload
+        if file:
+            if file.content_type != "application/pdf":
+                raise HTTPException(status_code=400, detail="Uploaded file must be a PDF")
+
+            file_path = DOWNLOAD_FOLDER / file.filename
+            with open(file_path, "wb") as f:
+                content = await file.read()
+                f.write(content)
+
+            # Queue background ingestion
+            background_tasks.add_task(ingest_file_and_store, str(file_path), file.filename)
+
+            return {"message": "PDF uploaded successfully. Processing in background.", "file_path": str(file_path)}
+
+        # Handle DOI Input (For simplicity, assuming this doesn't involve a background task)
+        if doi:
+            _, html_content = await Api.get_page(doi)
+            if not html_content:
+                raise HTTPException(status_code=500, detail="Empty response content")
+
+            # Extract PDF URL and download it
+            soup = BeautifulSoup(html_content, "html.parser")
+            download_button = soup.select_one("#buttons button[onclick]")
+            if download_button:
+                onclick_attr = download_button.get("onclick")
+                if onclick_attr:
+                    url_start = onclick_attr.find("location.href='") + len("location.href='")
+                    url_end = onclick_attr.find("'", url_start)
+                    pdf_url = onclick_attr[url_start:url_end]
+
+                    # Construct absolute URL if needed
+                    if pdf_url.startswith("/"):
+                        pdf_url = "https://sci-hub.ru" + pdf_url
+                    pdf_filename = pdf_url.split("/")[-1].split("?")[0]
+                    file_path = await download_pdf(pdf_url, pdf_filename)
+
+                    # Queue background ingestion
+                    background_tasks.add_task(ingest_file_and_store, str(file_path), pdf_filename)
+
+                    return {"message": "PDF downloaded successfully. Processing in background.", "file_path": str(file_path)}
+
+            raise HTTPException(status_code=404, detail="PDF download URL not found in the page content")
+
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
+
+@app.get("/mapping/{filename}")
+def get_file_mapping(filename: str):
+    """Fetch the GPT document ID for a given file."""
+    doc_id = get_mapping(filename)
+    return {"filename": filename, "doc_id": doc_id}

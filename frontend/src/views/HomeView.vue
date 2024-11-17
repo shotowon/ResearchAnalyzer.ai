@@ -1,30 +1,43 @@
 <template>
   <transition name="slide-from-top">
     <div class="paper-download" v-if="mounted">
-      <form @submit.prevent="submitLink" class="form-container">
-        <label for="paper-link">Enter paper link:</label>
+      <form @submit.prevent="submit" class="form-container">
+        <!-- Input for paper link -->
+        <label for="paper-link">Enter paper link (optional):</label>
         <input
           type="text"
           v-model="paperLink"
           id="paper-link"
-          placeholder="https://doi.org/10.1073/pnas.0611500104"
-          @keydown.enter="submitLink"
+          placeholder="https://doi.org/something..."
+          :disabled="file"
         />
+
+        <!-- Divider between features -->
+        <p>OR</p>
+
+        <!-- File upload for PDFs -->
+        <label for="file-upload">Upload a PDF file:</label>
+        <input
+          type="file"
+          id="file-upload"
+          @change="onFileChange"
+          accept="application/pdf"
+        />
+
+        <!-- Submit button -->
         <button type="submit" class="submit-button">Submit</button>
       </form>
-      
+
+      <!-- Feedback messages with transitions -->
       <transition name="fade">
         <p v-if="doi" class="info">Extracted DOI: {{ doi }}</p>
       </transition>
-      
       <transition name="fade">
         <p v-if="message" class="info success">Message: {{ message }}</p>
       </transition>
-      
       <transition name="fade">
         <p v-if="filePath" class="info">File Path: {{ filePath }}</p>
       </transition>
-      
       <transition name="fade">
         <p v-if="error" class="info error">{{ error }}</p>
       </transition>
@@ -32,9 +45,8 @@
   </transition>
 </template>
 
-
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted } from "vue";
 
 export default {
   setup() {
@@ -43,6 +55,7 @@ export default {
     const message = ref(null);
     const filePath = ref(null);
     const error = ref(null);
+    const file = ref(null);
     const mounted = ref(false);
 
     const extractDOI = (link) => {
@@ -50,31 +63,65 @@ export default {
       return doiMatch ? doiMatch[0] : null;
     };
 
-    const submitLink = async () => {
+    const onFileChange = (event) => {
+      file.value = event.target.files[0];
+      paperLink.value = ""; // Clear DOI input if a file is selected
+      error.value = null;
+    };
+
+    const submit = async () => {
       error.value = null;
       message.value = null;
       filePath.value = null;
-      const extractedDOI = extractDOI(paperLink.value);
+      doi.value = null;
 
-      if (!extractedDOI) {
-        error.value = "Invalid link or DOI not found.";
+      // Validation for inputs
+      if (!paperLink.value && !file.value) {
+        error.value = "Please provide either a DOI or upload a PDF file.";
+        return;
+      }
+      if (paperLink.value && file.value) {
+        error.value = "Please provide only one input: either a DOI or a file.";
         return;
       }
 
-      doi.value = extractedDOI;
+      const formData = new FormData();
+
+      if (paperLink.value) {
+        const extractedDOI = extractDOI(paperLink.value);
+        if (!extractedDOI) {
+          error.value = "Invalid link or DOI not found.";
+          return;
+        }
+        doi.value = extractedDOI;
+        formData.append("doi", extractedDOI);
+      }
+
+      if (file.value) {
+        if (file.value.type !== "application/pdf") {
+          error.value = "The uploaded file must be a PDF.";
+          return;
+        }
+        formData.append("file", file.value);
+      }
 
       try {
-        const response = await fetch(`http://127.0.0.1:8000/place-pdf?doi=${encodeURIComponent(doi.value)}`, {
-          method: "GET",
+        const response = await fetch("http://127.0.0.1:8000/process-pdf", {
+          method: "POST",
+          body: formData,
         });
 
         const result = await response.json();
+
         if (!response.ok) {
-          throw new Error(result.detail || "Error downloading the PDF");
+          throw new Error(result.detail || "Error processing the request.");
         }
 
-        message.value = result.message;
-        filePath.value = result.file_path;
+        if (result.file_path) {
+          filePath.value = result.file_path;
+        }
+
+        message.value = result.message || "Success!";
       } catch (err) {
         error.value = `Error: ${err.message}`;
       }
@@ -90,15 +137,17 @@ export default {
       message,
       filePath,
       error,
-      submitLink,
-      mounted
+      file,
+      submit,
+      onFileChange,
+      mounted,
     };
   },
 };
 </script>
 
-
 <style scoped>
+/* Reuse the same styles from the provided design */
 .paper-download {
   max-width: 400px;
   margin: auto;
