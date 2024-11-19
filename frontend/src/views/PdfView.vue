@@ -8,24 +8,50 @@
 
     <transition name="fade">
       <button @click="summarizePdf" :disabled="loading || buttonPressed" class="summarize-button">
-        {{ loading ? 'Summarizing...' : 'Summarize PDF' }}
+        {{ loading ? "Summarizing..." : "Summarize PDF" }}
       </button>
     </transition>
 
+    <!-- Rendered Summary -->
     <transition name="slide-up">
-      <div v-if="summary" class="summary" v-html="renderedSummary"></div>
+      <div v-if="summary" class="summary-rendered" v-html="renderedSummary"></div>
     </transition>
+
+    <!-- Chat Section -->
+    <div class="chat-section">
+      <div class="chat-history-rendered">
+        <div v-for="(entry, index) in chatHistory" :key="index" class="chat-entry-rendered">
+          <div class="user-question-rendered">
+            <strong>Q:</strong> {{ entry.question }}
+          </div>
+          <div class="chat-response-rendered" v-html="renderMarkdown(entry.answer)"></div>
+          <p class="source-rendered">Source: {{ entry.source }}</p>
+        </div>
+      </div>
+
+      <textarea
+        v-model="userMessage"
+        placeholder="Ask something about the document..."
+        rows="4"
+        class="chat-input"
+      ></textarea>
+      <button
+        @click="sendMessage"
+        :disabled="chatLoading || !userMessage.trim()"
+        class="chat-button"
+      >
+        {{ chatLoading ? "Loading..." : "Send" }}
+      </button>
+    </div>
   </div>
 </template>
-
-
 <script>
-import { ref, computed } from 'vue';
-import VuePdfApp from 'vue3-pdf-app';
-import { marked } from 'marked';
+import { ref, computed } from "vue";
+import VuePdfApp from "vue3-pdf-app";
+import { marked } from "marked";
 
 export default {
-  name: 'PdfView',
+  name: "PdfView",
   components: {
     VuePdfApp,
   },
@@ -38,16 +64,21 @@ export default {
   setup(props) {
     const error = ref(null);
     const summary = ref(null);
+    const userMessage = ref("");
+    const chatHistory = ref([]); // Maintain a list of all questions and answers
     const loading = ref(false);
+    const chatLoading = ref(false);
     const buttonPressed = ref(false);
 
     const pdfUrl = computed(() => `http://127.0.0.1:8000/file/${encodeURIComponent(props.filePath)}`);
 
-    const renderedSummary = computed(() => marked(summary.value || ''));
+    const renderedSummary = computed(() => marked(summary.value || ""));
+
+    const renderMarkdown = (text) => marked(text || "");
 
     const handleError = (err) => {
-      console.error('PDF loading error:', err);
-      error.value = 'Failed to load PDF. Please try again.';
+      console.error("PDF loading error:", err);
+      error.value = "Failed to load PDF. Please try again.";
     };
 
     const summarizePdf = async () => {
@@ -58,18 +89,18 @@ export default {
 
       try {
         const response = await fetch(`http://127.0.0.1:8000/summarize/${encodeURIComponent(props.filePath)}`);
-        if (!response.ok) throw new Error('Failed to summarize PDF.');
+        if (!response.ok) throw new Error("Failed to summarize PDF.");
 
         pollSummary();
       } catch (err) {
-        error.value = 'Failed to summarize PDF. Please try again.';
+        error.value = "Failed to summarize PDF. Please try again.";
         loading.value = false;
         buttonPressed.value = false;
       }
     };
 
     const pollSummary = async () => {
-      const fileName = props.filePath.split('/').pop();
+      const fileName = props.filePath.split("/").pop();
       try {
         const summaryResponse = await fetch(`http://127.0.0.1:8000/summary/${encodeURIComponent(fileName)}`);
         if (summaryResponse.ok) {
@@ -82,9 +113,42 @@ export default {
           }
         }
       } catch (err) {
-        error.value = 'Failed to retrieve summary. Please try again later.';
+        error.value = "Failed to retrieve summary. Please try again later.";
         loading.value = false;
         buttonPressed.value = false;
+      }
+    };
+
+    const sendMessage = async () => {
+      chatLoading.value = true;
+      error.value = null;
+
+      try {
+        const filename = props.filePath.split("/").pop();
+        const response = await fetch("http://127.0.0.1:8000/chat-with-doc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: userMessage.value,
+            filename,
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to retrieve chat response.");
+
+        const chatResult = await response.json();
+
+        // Add the question and answer to the chat history
+        chatHistory.value.push({
+          question: userMessage.value,
+          answer: chatResult.response,
+          source: chatResult.source,
+        });
+      } catch (err) {
+        error.value = "Failed to send message. Please try again.";
+      } finally {
+        chatLoading.value = false;
+        userMessage.value = "";
       }
     };
 
@@ -97,10 +161,99 @@ export default {
       loading,
       buttonPressed,
       renderedSummary,
+      userMessage,
+      sendMessage,
+      chatHistory,
+      chatLoading,
+      renderMarkdown, // Add Markdown rendering function
     };
   },
 };
-</script><style scoped>
+</script>
+
+
+
+
+<style scoped>
+/* Keep your existing styles */
+.chat {
+  margin-top: 20px;
+}
+
+.chat-input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.chat-button {
+  display: block;
+  padding: 10px 20px;
+  font-size: 1.2rem;
+  color: white;
+  background-color: #007bff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background-color 0.3s, transform 0.3s;
+}
+
+.chat-button:hover {
+  background-color: #0056b3;
+}
+
+.chat-button:disabled {
+  background-color: #b0c4de;
+  cursor: not-allowed;
+}
+
+.chat-response {
+  margin-top: 20px;
+  background-color: #2e2e38;
+  padding: 20px;
+  border-radius: 10px;
+  color: #e6e6e6;
+}
+
+.chat-response .source {
+  font-size: 0.9rem;
+  color: #b0b0b0;
+  margin-top: 10px;
+}
+
+
+.chat-history {
+  margin-top: 20px;
+  padding: 20px;
+  background-color: #2e2e38;
+  border-radius: 10px;
+  color: #e6e6e6;
+}
+
+.chat-entry {
+  margin-bottom: 20px;
+}
+
+.user-question {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.chat-response {
+  margin-left: 10px;
+}
+
+.chat-response .source {
+  font-size: 0.9rem;
+  color: #b0b0b0;
+  margin-top: 10px;
+}
 .pdf-viewer {
   position: relative;
   height: 100vh;
@@ -110,97 +263,74 @@ export default {
   color: #e6e6e6; /* Light text for contrast */
 }
 
-.loading, .error {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 1.2rem;
-  text-align: center;
-  color: #ff4444;
+.summary-rendered {
+  margin-top: 20px;
   padding: 20px;
+  background-color: black; /* Black background for summary */
   border-radius: 10px;
-  background-color: #2e2e38; /* Slightly lighter dark background */
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-.summarize-button {
-  display: block;
-  margin: 20px auto;
-  padding: 10px 20px;
-  font-size: 1.2rem;
-  color: white;
-  background-color: #007bff;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s, transform 0.3s;
-}
-
-.summarize-button:hover {
-  background-color: #0056b3;
-}
-
-.summarize-button:disabled {
-  background-color: #b0c4de;
-  cursor: not-allowed;
-}
-
-.summary {
-  margin-top: 30px;
-  padding: 20px;
-  background-color: #2e2e38; /* Darker card background */
-  border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  animation: fade-in 0.5s ease-in;
-  line-height: 1.6;
   color: #e6e6e6; /* Light text for contrast */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
 }
 
-.summary h1, .summary h2, .summary h3 {
-  margin-top: 1em;
-  color: #d4d4d4; /* Slightly lighter text for headers */
+.chat-section {
+  margin-top: 20px;
+  padding: 20px;
+  background-color: #2e2e38;
+  border-radius: 10px;
 }
 
-.summary p {
+.chat-history-rendered {
+  max-height: 600px;
+  overflow-y: auto;
+  padding: 10px;
+  background-color: #1e1e2f;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.chat-entry-rendered {
+  margin-bottom: 20px;
+}
+
+.user-question-rendered {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.chat-response-rendered {
+  margin-left: 10px;
   font-size: 1rem;
+}
+
+.source-rendered {
+  font-size: 0.9rem;
+  color: #b0b0b0;
+  margin-top: 5px;
+}
+
+.chat-response-rendered {
+  margin-left: 10px;
+  font-size: 1rem;
+  background-color: #2e2e38; /* Slightly darker background */
+  padding: 10px;
+  border-radius: 5px;
   color: #e6e6e6;
+  line-height: 1.5;
 }
 
-.summary ul, .summary ol {
-  padding-left: 1.5rem;
-  color: #cfcfcf; /* Lists have a slightly different shade */
+.chat-response-rendered ul,
+.chat-response-rendered ol {
+  margin-left: 20px;
+  padding-left: 20px;
 }
 
-.summary code {
-  background-color: #3e3e48; /* Dark code background */
-  color: #ffcc99; /* Light code text */
+.chat-response-rendered code {
+  background-color: #3e3e48;
+  color: #ffcc99;
   padding: 2px 4px;
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.5s ease-in-out;
-}
-
-.fade-enter, .fade-leave-to {
-  opacity: 0;
-}
-
-.bounce-enter-active, .bounce-leave-active {
-  transition: transform 0.5s ease-in-out;
-}
-
-.bounce-enter, .bounce-leave-to {
-  transform: scale(0.8);
-}
-
-.slide-up-enter-active, .slide-up-leave-active {
-  transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
-}
-
-.slide-up-enter, .slide-up-leave-to {
-  transform: translateY(20px);
-  opacity: 0;
-}
 </style>

@@ -49,7 +49,18 @@ def get_mapping(filename: str):
     else:
         raise HTTPException(status_code=404, detail=f"No mapping found for file '{filename}'.")
 
-# Initialize the database
+def get_all_ingested():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM file_gpt_map")
+    result = cursor.fetchall()
+    conn.close()
+    if result:
+        return result
+    else:
+        raise HTTPException(status_code=404, detail=f"No files mapped")
+
+
 init_db()
 
 
@@ -239,3 +250,44 @@ def get_file_mapping(filename: str):
     """Fetch the GPT document ID for a given file."""
     doc_id = get_mapping(filename)
     return {"filename": filename, "doc_id": doc_id}
+
+@app.get("/all_mapped")
+def get_all_mapped():
+    """Fetch all the GPT document IDs mapped to filenames."""
+    return {"mappings": get_all_ingested()}
+
+@app.get('/list_of_ingested')
+def get_all_ingested():
+    data = pgpt_client.ingestion.list_ingested().data
+    return {"data": data}
+
+from pydantic import BaseModel
+
+class ChatRequest(BaseModel):
+    prompt: str
+    filename: str
+
+@app.post("/chat-with-doc")
+async def chat_with_doc(request: ChatRequest):
+    """Use GPT for contextual completion with a specific document."""
+    filename = request.filename
+    prompt = request.prompt
+    print(filename)
+
+    doc_id = get_mapping(filename)  # Retrieve `doc_id` for the filename from the database
+    if not doc_id:
+        raise HTTPException(status_code=404, detail="Document ID not found for the given file")
+    print(doc_id)
+    try:
+        result = pgpt_client.contextual_completions.prompt_completion(
+            prompt=prompt,
+            use_context=True,
+            context_filter={"docs_ids": [doc_id]},
+            include_sources=True
+        ).choices[0]
+        return {
+            "response": result.message.content,
+            "source": result.sources[0].document.doc_metadata["file_name"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during chat: {str(e)}")
