@@ -1,32 +1,142 @@
+<script setup>
+import { ref, onMounted } from "vue";
+const paperLink = ref("");
+const doi = ref("");
+const message = ref(null);
+const filePath = ref(null);
+const error = ref(null);
+const file = ref(null);
+const mounted = ref(false);
+
+const extractDOI = (link) => {
+  const doiMatch = link.match(/10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i);
+  return doiMatch ? doiMatch[0] : null;
+};
+
+const onFileChange = (event) => {
+  file.value = event.target.files[0];
+  paperLink.value = ""; // Clear DOI input if a file is selected
+  error.value = null;
+};
+
+const submitDOI = async () => {
+  error.value = null;
+  message.value = null;
+  doi.value = null;
+
+  if (!paperLink.value) {
+    error.value = "Please provide a DOI";
+    return;
+  }
+
+  const extractedDOI = extractDOI(paperLink.value);
+  if (!extractedDOI) {
+    error.value = "Invalid link or DOI not found.";
+    return;
+  }
+
+  doi.value = extractedDOI;
+
+  try {
+    const response = await fetch("http://127.0.0.1:8000/process-doi", {
+      method: "POST",
+      body: JSON.stringify(
+        {
+          "doi": doi.value,
+        }
+      ),
+      headers: {
+        "Content-Type": "application/json",
+      }
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.detail || "Error processing the request.");
+    }
+
+    if (result.file_path) {
+      filePath.value = result.file_path;
+    }
+
+    message.value = result.message || "Success!";
+  } catch (err) {
+    error.value = `Error: ${err.message}`;
+  }
+};
+
+const submitFile = async () => {
+  error.value = null;
+  message.value = null;
+  filePath.value = null;
+
+  const formData = new FormData();
+
+  if (!file.value) {
+    error.value = "Please provide a PDF file.";
+    return;
+  }
+
+  if (file.value.type !== "application/pdf") {
+    error.value = "The uploaded file must be a PDF.";
+    return;
+  }
+  formData.append('file', file.value)
+
+  try {
+    const response = await fetch("http://127.0.0.1:8000/process-pdf", {
+      method: "POST",
+      body: formData
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.detail || "Error processing the request.");
+    }
+
+    if (result.file_path) {
+      filePath.value = result.file_path;
+    }
+
+    message.value = result.message || "Success!";
+  } catch (err) {
+    error.value = `Error: ${err.message}`;
+  }
+};
+
+onMounted(() => {
+  mounted.value = true;
+});
+
+</script>
+
 <template>
   <transition name="slide-from-top">
     <div class="paper-download" v-if="mounted">
-      <form @submit.prevent="submit" class="form-container">
-        <!-- Input for paper link -->
-        <label for="paper-link">Enter paper link (optional):</label>
-        <input
-          type="text"
-          v-model="paperLink"
-          id="paper-link"
-          placeholder="https://doi.org/something..."
-          :disabled="file"
-        />
-
-        <!-- Divider between features -->
-        <p>OR</p>
-
+      <!-- File upload form-->
+      <form @submit.prevent="submitFile" class="form-container">
         <!-- File upload for PDFs -->
         <label for="file-upload">Upload a PDF file:</label>
-        <input
-          type="file"
-          id="file-upload"
-          @change="onFileChange"
-          accept="application/pdf"
-        />
+        <input type="file" id="file-upload" @change="onFileChange" accept="application/pdf" />
 
         <!-- Submit button -->
         <button type="submit" class="submit-button">Submit</button>
       </form>
+
+      <!-- DOI upload form -->
+      <form @submit.prevent="submitDOI" class="form-container">
+        <!-- Input for paper link -->
+        <label for="paper-link">Enter paper link (optional):</label>
+        <input type="text" v-model="paperLink" id="paper-link" placeholder="https://doi.org/something..."
+          :disabled="file" />
+
+        <!-- Submit button -->
+        <button type="submit" class="submit-button">Submit</button>
+      </form>
+
+
 
       <!-- Feedback messages with transitions -->
       <transition name="fade">
@@ -44,108 +154,6 @@
     </div>
   </transition>
 </template>
-
-<script>
-import { ref, onMounted } from "vue";
-
-export default {
-  setup() {
-    const paperLink = ref("");
-    const doi = ref(null);
-    const message = ref(null);
-    const filePath = ref(null);
-    const error = ref(null);
-    const file = ref(null);
-    const mounted = ref(false);
-
-    const extractDOI = (link) => {
-      const doiMatch = link.match(/10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i);
-      return doiMatch ? doiMatch[0] : null;
-    };
-
-    const onFileChange = (event) => {
-      file.value = event.target.files[0];
-      paperLink.value = ""; // Clear DOI input if a file is selected
-      error.value = null;
-    };
-
-    const submit = async () => {
-      error.value = null;
-      message.value = null;
-      filePath.value = null;
-      doi.value = null;
-
-      // Validation for inputs
-      if (!paperLink.value && !file.value) {
-        error.value = "Please provide either a DOI or upload a PDF file.";
-        return;
-      }
-      if (paperLink.value && file.value) {
-        error.value = "Please provide only one input: either a DOI or a file.";
-        return;
-      }
-
-      const formData = new FormData();
-
-      if (paperLink.value) {
-        const extractedDOI = extractDOI(paperLink.value);
-        if (!extractedDOI) {
-          error.value = "Invalid link or DOI not found.";
-          return;
-        }
-        doi.value = extractedDOI;
-        formData.append("doi", extractedDOI);
-      }
-
-      if (file.value) {
-        if (file.value.type !== "application/pdf") {
-          error.value = "The uploaded file must be a PDF.";
-          return;
-        }
-        formData.append("file", file.value);
-      }
-
-      try {
-        const response = await fetch("http://127.0.0.1:8000/process-pdf", {
-          method: "POST",
-          body: formData,
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.detail || "Error processing the request.");
-        }
-
-        if (result.file_path) {
-          filePath.value = result.file_path;
-        }
-
-        message.value = result.message || "Success!";
-      } catch (err) {
-        error.value = `Error: ${err.message}`;
-      }
-    };
-
-    onMounted(() => {
-      mounted.value = true;
-    });
-
-    return {
-      paperLink,
-      doi,
-      message,
-      filePath,
-      error,
-      file,
-      submit,
-      onFileChange,
-      mounted,
-    };
-  },
-};
-</script>
-
 <style scoped>
 /* Reuse the same styles from the provided design */
 .paper-download {
@@ -215,11 +223,13 @@ input:focus {
   color: #721c24;
 }
 
-.fade-enter-active, .fade-leave-active {
+.fade-enter-active,
+.fade-leave-active {
   transition: opacity 0.5s;
 }
 
-.fade-enter, .fade-leave-to {
+.fade-enter,
+.fade-leave-to {
   opacity: 0;
 }
 
