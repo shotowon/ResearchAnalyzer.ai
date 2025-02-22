@@ -1,5 +1,4 @@
-Media
+__pycache__
 backend/venv
-backend/src/__pycache__
-backend/src/Api/__pycache__
+Media
 backend/file_gpt_map.db
