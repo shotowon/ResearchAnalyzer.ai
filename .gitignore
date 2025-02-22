@@ -1,4 +1,5 @@
-downloaded_pdfs
+Media
 backend/venv
 backend/src/__pycache__
 backend/src/Api/__pycache__
+backend/file_gpt_map.db

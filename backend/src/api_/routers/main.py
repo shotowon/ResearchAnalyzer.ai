@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi import File, UploadFile
 from fastapi.responses import FileResponse
 
-from src.api.clients.scihub import SciHubApi
+from src.api_.clients.scihub import SciHubApi
 from src.consts import DOWNLOAD_FOLDER
 from src.dependencies import pgpt_client, summary_store
 from src.services.summarization import (
@@ -82,28 +82,22 @@ async def process_doi(body: ProcessDOISchema, background_tasks: BackgroundTasks)
             raise HTTPException(status_code=500, detail="Empty response content")
 
         soup = BeautifulSoup(html_content, "html.parser")
-        download_button = soup.select_one("#buttons button[onclick]")
-        if download_button:
-            onclick_attr = download_button.get("onclick")
-            if onclick_attr:
-                url_start = onclick_attr.find("location.href='") + len(
-                    "location.href='"
-                )
-                url_end = onclick_attr.find("'", url_start)
-                pdf_url = onclick_attr[url_start:url_end]
-
-                if pdf_url.startswith("/"):
-                    pdf_url = "https://sci-hub.ru" + pdf_url
-                    pdf_filename = pdf_url.split("/")[-1].split("?")[0]
-                    file_path = await download_pdf(pdf_url, pdf_filename)
-                background_tasks.add_task(
-                    ingest_file_and_store, pgpt_client, str(file_path), pdf_filename
-                )
-
+        embed_tag = soup.find("embed")
+        if embed_tag and "src" in embed_tag.attrs:
+            pdf_url = embed_tag["src"]
+            
+            if pdf_url.startswith("//"):
+                pdf_url = "https:" + pdf_url
+                
+            pdf_filename = pdf_url.split("/")[-1].split("#")[0]
+            file_path = await download_pdf(pdf_url, pdf_filename)
+            background_tasks.add_task(ingest_file_and_store, pgpt_client, str(file_path), pdf_filename)
+          
+            if file_path:
                 return {
-                    "message": "PDF downloaded successfully. Processing in background.",
-                    "file_path": str(file_path),
-                }
+                        "message": "PDF downloaded successfully. Processing in background.",
+                        "file_path": str(file_path),
+                    }
 
         raise HTTPException(
             status_code=404, detail="PDF download URL not found in the page content"

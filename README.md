@@ -14,6 +14,6 @@ source venv/bin/activate - linux
 # качаете все зависимости:
 pip install -r requirements.txt
 
-# запускаете бандита:
+# запускаете бандита:   
 uvicorn src.main:app --reload
 

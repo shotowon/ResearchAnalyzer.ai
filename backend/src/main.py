@@ -8,12 +8,12 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 import aiohttp
 import fitz  # PyMuPDF
-from src.api.clients.scihub import SciHubApi
+from src.api_.clients.scihub import SciHubApi
 from pgpt_python.client import PrivateGPTApi
 import sqlite3
 
 from src.consts import DB_PATH, DOWNLOAD_FOLDER
-from src.api.routers.main import router
+from src.api_.routers.main import router
 from src.dependencies import pgpt_client
 
 
