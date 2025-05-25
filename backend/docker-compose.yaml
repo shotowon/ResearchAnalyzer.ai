@@ -11,5 +11,19 @@ services:
       POSTGRES_DB: rai
       POSTGRES_USER: rai
       POSTGRES_PASSWORD: rai
+  mail-server:
+    image: analogic/poste.io:2
+    restart: always
+    ports:
+      - 2525:25
+      - 10110:110
+      - 10143:143
+      - 10443:443
+      - 10465:465
+      - 10587:587
+    volumes:
+      - mail-data:/data
+    hostname: rai.com
 volumes:
+  mail-data:
   db:
