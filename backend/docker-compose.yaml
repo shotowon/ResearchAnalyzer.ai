@@ -24,6 +24,20 @@ services:
     volumes:
       - mail-data:/data
     hostname: rai.com
+  minio-store:
+    image: quay.io/minio/minio
+    restart: always
+    command: server /data --console-address ":9001"
+    ports:
+      - 9000:9000
+      - 9001:9001
+    volumes:
+      - minio:/data
+    environment:
+      - MINIO_ROOT_USER=rai
+      - MINIO_ROOT_PASSWORD=researcher
+
 volumes:
   mail-data:
   db:
+  minio:
