@@ -1,65 +1,104 @@
 <template>
-  <header>
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark">
-      <div class="container">
-        <router-link class="navbar-brand" to="/">🌟Research Analyzer.ai🌟</router-link>
-        <button
-          class="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarCollapse"
-          aria-controls="navbarCollapse"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarCollapse">
-          <ul class="navbar-nav me-auto mb-2 mb-md-0">
-            <li class="nav-item">
-              <router-link class="nav-link" to="/files">My Files</router-link>
-            </li>
-          </ul>
-          <ul class="navbar-nav ms-auto mb-2 mb-md-0">
-            <li class="nav-item">
-              <router-link class="nav-link" to="/login">Login</router-link>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </nav>
-  </header>
+  <nav class="navbar">
+    <div class="nav-brand">
+      <router-link to="/" class="brand">ResearchAnalyzer.ai</router-link>
+    </div>
+    <div class="nav-menu">
+      <!-- Show these items only when authenticated -->
+      <template v-if="isAuthenticated">
+        <router-link to="/files" class="nav-item">Files</router-link>
+        <router-link to="/chat" class="nav-item">Chat</router-link>
+        <button @click="handleLogout" class="nav-item logout-btn">Logout</button>
+      </template>
+      <!-- Show these items only when not authenticated -->
+      <template v-else>
+        <router-link to="/login" class="nav-item">Login</router-link>
+        <router-link to="/signup" class="nav-item register-btn">Register</router-link>
+      </template>
+    </div>
+  </nav>
 </template>
 
-  
-  <script>
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 
-  import { defineComponent, computed } from 'vue';
-  import { useRouter } from 'vue-router';
+const router = useRouter()
+const isAuthenticated = ref(false)
 
-  export default defineComponent({
-    name: 'NavBar',
-    setup() {
-      const router = useRouter();
+const checkAuth = () => {
+  isAuthenticated.value = localStorage.getItem('isAuthenticated') === 'true'
+}
 
-    }
-  });
+const handleLogout = () => {
+  localStorage.removeItem('isAuthenticated')
+  localStorage.removeItem('token')
+  isAuthenticated.value = false
+  router.push('/login')
+}
 
+onMounted(() => {
+  checkAuth()
+  window.addEventListener('storage', checkAuth)
+})
+</script>
 
-  </script>
-  
-  <style scoped>
-  a {
-    cursor: pointer;
-  }
+<style scoped>
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #2a2a2a;
+  color: white;
+}
 
-  .logo a {
-    font-size: 1.3rem;
-    font-weight: bold;
-    color: white;
-    text-decoration: none;
-    animation: fade-in 1.5s ease-in-out;
-  }
-  
-  </style>
+.nav-brand {
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.brand {
+  color: white;
+  text-decoration: none;
+}
+
+.nav-menu {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.nav-item {
+  color: #ffffff;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  font-size: 0.95rem;
+}
+
+.nav-item:hover {
+  background-color: #3a3a3a;
+}
+
+.logout-btn {
+  background: none;
+  border: 1px solid #666;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.logout-btn:hover {
+  border-color: #888;
+}
+
+.register-btn {
+  background-color: #2b5797;
+}
+
+.register-btn:hover {
+  background-color: #1e3f6f;
+}
+</style>
   
