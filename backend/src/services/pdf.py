@@ -3,7 +3,6 @@ from pathlib import Path
 from fastapi import HTTPException
 import aiohttp
 import fitz
-import test
 
 from src.consts import DOWNLOAD_FOLDER
 

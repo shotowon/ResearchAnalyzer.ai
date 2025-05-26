@@ -49,6 +49,7 @@
 import { ref, computed } from "vue";
 import VuePdfApp from "vue3-pdf-app";
 import { marked } from "marked";
+import { API_URL } from '../config';
 
 export default {
   name: "PdfView",
@@ -70,7 +71,7 @@ export default {
     const chatLoading = ref(false);
     const buttonPressed = ref(false);
 
-    const pdfUrl = computed(() => `http://127.0.0.1:8000/file/${encodeURIComponent(props.filePath)}`);
+    const pdfUrl = computed(() => `${API_URL}/file/${encodeURIComponent(props.filePath)}`);
 
     const renderedSummary = computed(() => marked(summary.value || ""));
 
@@ -88,7 +89,7 @@ export default {
       buttonPressed.value = true;
 
       try {
-        const response = await fetch(`http://127.0.0.1:8000/summarize/${encodeURIComponent(props.filePath)}`);
+        const response = await fetch(`${API_URL}/summarize/${encodeURIComponent(props.filePath)}`);
         if (!response.ok) throw new Error("Failed to summarize PDF.");
 
         pollSummary();
@@ -102,7 +103,7 @@ export default {
     const pollSummary = async () => {
       const fileName = props.filePath.split("/").pop();
       try {
-        const summaryResponse = await fetch(`http://127.0.0.1:8000/summary/${encodeURIComponent(fileName)}`);
+        const summaryResponse = await fetch(`${API_URL}/summary/${encodeURIComponent(fileName)}`);
         if (summaryResponse.ok) {
           const summaryData = await summaryResponse.json();
           if (summaryData.status === "completed") {
@@ -125,7 +126,7 @@ export default {
 
       try {
         const filename = props.filePath.split("/").pop();
-        const response = await fetch("http://127.0.0.1:8000/chat-with-doc", {
+        const response = await fetch(`${API_URL}/chat-with-doc`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

@@ -1,3 +1,4 @@
+from typing import List
 from sqlalchemy import select
 
 from src.gears.db import DB
@@ -20,7 +21,7 @@ class MappingStorage:
 
     async def list(
         self, user_id: int, limit: int = 15, offset: int = 0
-    ) -> list[GetResult]:
+    ) -> List[GetResult]:
         try:
             async with self.db.session_maker() as session:
                 stmt = (
@@ -79,17 +80,17 @@ class MappingStorage:
             async with self.db.session_maker() as session:
                 session.add(new_mapping)
                 await session.commit()
-                await session.refresh()
+                await session.refresh(new_mapping)
 
                 return CreateResult(id=new_mapping.id)
         except Exception as e:
-            return ErrInternal(
+            raise ErrInternal(
                 "file-mapping-storage: create: internal: {}".format(str(e))
             )
 
     async def list_ingested(
         self, user_id: int, limit: int = 15, offset: int = 0
-    ) -> list[GetIngestedResult]:
+    ) -> List[GetIngestedResult]:
         try:
             async with self.db.session_maker() as session:
                 stmt = (
@@ -152,10 +153,10 @@ class MappingStorage:
             async with self.db.session_maker() as session:
                 session.add(new_mapping)
                 await session.commit()
-                await session.refresh()
+                await session.refresh(new_mapping)
 
                 return CreateIngestedResult(id=new_mapping.id)
         except Exception as e:
-            return ErrInternal(
+            raise ErrInternal(
                 "file-mapping-storage: create: internal: {}".format(str(e))
             )

@@ -10,10 +10,13 @@ class FileMapping(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("user_accounts.id"))
-    user = relationship(UserAcct, backref=backref("file_mappings", uselist=False))
     filename: Mapped[str] = mapped_column(String(), nullable=False, index=True)
     content_type: Mapped[str] = mapped_column(
         String(),
         nullable=False,
         default="binary/octet-stream",
     )
+
+    # Relationships
+    user: Mapped["UserAcct"] = relationship(back_populates="file_mappings")
+    ingested: Mapped["IngestedFileMapping"] = relationship(back_populates="file_mapping")

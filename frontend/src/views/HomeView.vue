@@ -1,5 +1,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
+import { API_URL } from '../config';
+
 const paperLink = ref("");
 const doi = ref("");
 const message = ref(null);
@@ -38,22 +40,21 @@ const submitDOI = async () => {
   doi.value = extractedDOI;
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/process-doi", {
+    const response = await fetch(`${API_URL}/files/process-doi`, {
       method: "POST",
-      body: JSON.stringify(
-        {
-          "doi": doi.value,
-        }
-      ),
       headers: {
         "Content-Type": "application/json",
-      }
+        "Authorization": `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        doi: doi.value,
+      })
     });
 
     const result = await response.json();
 
     if (!response.ok) {
-      throw new Error(result.detail || "Error processing the request.");
+      throw new Error(result.message || "Error processing the request.");
     }
 
     if (result.file_path) {
@@ -85,15 +86,18 @@ const submitFile = async () => {
   formData.append('file', file.value)
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/process-pdf", {
+    const response = await fetch(`${API_URL}/files/upload`, {
       method: "POST",
+      headers: {
+        "Authorization": `Bearer ${localStorage.getItem('token')}`
+      },
       body: formData
     });
 
     const result = await response.json();
 
     if (!response.ok) {
-      throw new Error(result.detail || "Error processing the request.");
+      throw new Error(result.message || "Error processing the request.");
     }
 
     if (result.file_path) {
