@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from uuid import UUID
 
 
 @dataclass
@@ -8,6 +9,7 @@ class UserAcct:
     email: str
     password: str
     is_activated: bool
+    activation_id: UUID
 
 
 @dataclass
@@ -15,6 +17,7 @@ class CreateBody:
     username: str
     email: str
     password: str
+    activation_id: UUID
 
 
 @dataclass
@@ -26,6 +29,7 @@ class CreateResult:
 class GetResult:
     id: int
     username: str
+    activation_id: UUID
     is_activated: bool
     email: str
     password: str
@@ -34,12 +38,13 @@ class GetResult:
 @dataclass
 class UpdateBody:
     id: int
-    username: str
-    email: str
-    password: str
+    username: str | None
+    email: str | None
+    password: str | None
+    is_activated: bool | None
+    activation_id: UUID | None
 
 
 @dataclass
-class DeleteBody:
-    id: int | None
-    username: str | None
+class ActivateResult:
+    user_id: int
