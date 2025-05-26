@@ -17,12 +17,14 @@ from src.schemas.process_doi import ProcessDOISchema
 from src.schemas.chat_request import ChatRequest
 
 from src.api.routers.accounts.handlers import router as accounts_router
+from src.api.routers.files.handlers import router as files_router
 
 router = APIRouter()
 
 router.include_router(router=accounts_router, prefix="/accounts")
+router.include_router(router=files_router, prefix="/files")
 
-
+"""
 @router.get("/files")
 async def list_files():
     try:
@@ -165,14 +167,14 @@ async def process_pdf(
 
 @router.get("/mapping/{filename}")
 def get_file_mapping(filename: str):
-    """Fetch the GPT document ID for a given file."""
+
     doc_id = get_mapping(filename)
     return {"filename": filename, "doc_id": doc_id}
 
 
 @router.get("/all_mapped")
 def get_all_mapped():
-    """Fetch all the GPT document IDs mapped to filenames."""
+ 
     return {"mappings": get_all_ingested()}
 
 
@@ -184,7 +186,7 @@ def get_all_ingested():
 
 @router.post("/chat-with-doc")
 async def chat_with_doc(request: ChatRequest):
-    """Use GPT for contextual completion with a specific document."""
+
     filename = request.filename
     prompt = request.prompt
     print(filename)
@@ -210,3 +212,4 @@ async def chat_with_doc(request: ChatRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during chat: {str(e)}")
+"""

@@ -87,8 +87,13 @@ async def login(
     user_service: Annotated[UserAcctService, Depends(get_user_service)],
 ):
     logger = rootLogger.getChild("user-accounts.login")
+    is_email = True
     try:
-        if emails.is_email(login.login):
+        emails.is_email(login.login)
+    except Exception as e:
+        is_email = False
+    try:
+        if is_email:
             result = await user_service.email_login(
                 email=login.login, password=login.password
             )
