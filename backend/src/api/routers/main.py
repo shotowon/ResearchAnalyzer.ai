@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 
 from src.api.clients.scihub import SciHubApi
 from src.consts import DOWNLOAD_FOLDER
-from src.dependencies import pgpt_client, summary_store
+from src.init import pgpt_client, summary_store
 from src.services.summarization import (
     background_summarize,
     ingest_file_and_store,
@@ -16,7 +16,11 @@ from src.crud.temp_cruds import get_mapping
 from src.schemas.process_doi import ProcessDOISchema
 from src.schemas.chat_request import ChatRequest
 
+from src.api.routers.accounts.handlers import router as accounts_router
+
 router = APIRouter()
+
+router.include_router(router=accounts_router, prefix="/accounts")
 
 
 @router.get("/files")

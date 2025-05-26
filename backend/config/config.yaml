@@ -1,0 +1,27 @@
+env: local
+cors:
+  frontend_url: http://localhost:5173
+http_server:
+  host: 0.0.0.0
+  port: 8000
+auth:
+  secret: secret
+  expiry: PT5H
+postgres:
+  dsn: postgresql+asyncpg://rai:rai@localhost:5432/rai
+pgpt:
+  url: http://localhost:8001
+auth_mailer:
+  smtp_host: 127.0.0.1
+  smtp_port: 10465
+  activation_endpoint: "localhost:8000/accounts/activate"
+  tls_verification: false
+  use_tls: true
+  from_address: auth@rai.com
+  username: auth@rai.com
+  password: rai
+minio:
+  dsn: localhost:9000
+  access_key: rai
+  secret_key: researcher
+  secure: false

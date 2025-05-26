@@ -1,0 +1,77 @@
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+        "std": {
+            "format": "[%(levelname)s] %(name)s %(env)s %(asctime)s %(message)s",
+            "datefmt": "%Y-%m-%dT%H:%M:%S%z"
+        },
+        "json": {
+            "()": "pythonjsonlogger.json.JsonFormatter",
+            "format": "%(levelname)s%(env)s%(asctime)s%(message)s",
+            "datefmt": "%Y-%m-%dT%H:%M:%S%z",
+            "rename_fields": {
+                "asctime": "time",
+                "levelname": "level"
+            }
+        }
+    },
+    "filters": {
+        "no_errors": {
+            "()": "src.gears.logging.filters.NoErrors"
+        },
+        "env": {
+            "()": "src.gears.logging.filters.Env",
+            "env": "dev"
+        }
+    },
+    "handlers": {
+        "stdout": {
+            "class": "logging.StreamHandler",
+            "level": "DEBUG",
+            "formatter": "std",
+            "stream": "ext://sys.stdout",
+            "filters": [
+                "no_errors",
+                "env"
+            ]
+        },
+        "stderr": {
+            "class": "logging.StreamHandler",
+            "level": "WARNING",
+            "formatter": "std",
+            "stream": "ext://sys.stderr",
+            "filters": [
+                "env"
+            ]
+        },
+        "file": {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "level": "DEBUG",
+            "formatter": "json",
+            "filters": [
+                "env"
+            ],
+            "filename": "logs/shorpy.log",
+            "when": "midnight",
+            "interval": 1,
+            "backupCount": 7,
+            "encoding": "utf-8",
+            "delay": true
+        },
+        "queue": {
+            "class": "logging.handlers.QueueHandler",
+            "handlers": [
+                "stdout",
+                "stderr",
+                "file"
+            ]
+        }
+    },
+    "root": {
+        "level": "DEBUG",
+        "handlers": [
+            "queue"
+        ]
+    }
+}

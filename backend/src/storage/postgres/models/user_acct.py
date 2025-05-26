@@ -1,5 +1,8 @@
 from sqlalchemy import String, Integer, Boolean, Index
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
+import uuid
+
 from .base import Base
 
 
@@ -8,6 +11,12 @@ class UserAcct(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     is_activated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    activation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        index=True,
+        nullable=False,
+        unique=True,
+    )
     username: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(unique=True, nullable=False)
     password: Mapped[str] = mapped_column(nullable=False)

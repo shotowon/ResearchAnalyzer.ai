@@ -1,20 +1,12 @@
-import os
-
-from bs4 import BeautifulSoup
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi import File, UploadFile, Form
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from pathlib import Path
-import aiohttp
-import fitz  # PyMuPDF
-from src.api_.clients.scihub import SciHubApi
-from pgpt_python.client import PrivateGPTApi
 import sqlite3
 
-from src.consts import DB_PATH, DOWNLOAD_FOLDER
-from src.api_.routers.main import router
-from src.dependencies import pgpt_client
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
+import uvicorn
+
+from src.consts import DB_PATH
+from src.api.routers.main import router
+from src.init import logger, cfg
 
 
 def init_db():

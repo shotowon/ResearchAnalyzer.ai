@@ -1,0 +1,62 @@
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+        "colored": {
+            "()": "colorlog.ColoredFormatter",
+            "format": "%(log_color)s[%(levelname)s] %(blue)s%(name)s %(red)s%(env)s %(cyan)s%(asctime)s %(light_cyan)s%(message)s",
+            "log_colors": {
+                "DEBUG": "cyan",
+                "INFO": "green",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "purple"
+            },
+            "datefmt": "%Y-%m-%dT%H:%M:%S%z"
+        }
+    },
+    "filters": {
+        "no_errors": {
+            "()": "src.gears.logging.filters.NoErrors"
+        },
+        "env": {
+            "()": "src.gears.logging.filters.Env",
+            "env": "local"
+        }
+    },
+    "handlers": {
+        "stdout": {
+            "class": "logging.StreamHandler",
+            "level": "DEBUG",
+            "formatter": "colored",
+            "stream": "ext://sys.stdout",
+            "filters": [
+                "no_errors",
+                "env"
+            ]
+        },
+        "stderr": {
+            "class": "logging.StreamHandler",
+            "level": "WARNING",
+            "formatter": "colored",
+            "stream": "ext://sys.stderr",
+            "filters": [
+                "env"
+            ]
+        },
+        "queue": {
+            "class": "logging.handlers.QueueHandler",
+            "handlers": [
+                "stdout",
+                "stderr"
+            ],
+            "respect_handler_level": true
+        }
+    },
+    "root": {
+        "level": "DEBUG",
+        "handlers": [
+            "queue"
+        ]
+    }
+}

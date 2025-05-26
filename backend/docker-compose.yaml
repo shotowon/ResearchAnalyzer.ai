@@ -11,5 +11,33 @@ services:
       POSTGRES_DB: rai
       POSTGRES_USER: rai
       POSTGRES_PASSWORD: rai
+  mail-server:
+    image: analogic/poste.io:2
+    restart: always
+    ports:
+      - 2525:25
+      - 10110:110
+      - 10143:143
+      - 10443:443
+      - 10465:465
+      - 10587:587
+    volumes:
+      - mail-data:/data
+    hostname: rai.com
+  minio-store:
+    image: quay.io/minio/minio
+    restart: always
+    command: server /data --console-address ":9001"
+    ports:
+      - 9000:9000
+      - 9001:9001
+    volumes:
+      - minio:/data
+    environment:
+      - MINIO_ROOT_USER=rai
+      - MINIO_ROOT_PASSWORD=researcher
+
 volumes:
+  mail-data:
   db:
+  minio:
