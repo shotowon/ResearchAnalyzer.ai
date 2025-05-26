@@ -1,9 +1,9 @@
 env: local
 cors:
-  frontend_url: http://localhost:5173
+  frontend_url: "*"
 http_server:
   host: 0.0.0.0
-  port: 8000
+  port: 7500
 auth:
   secret: secret
   expiry: PT5H
