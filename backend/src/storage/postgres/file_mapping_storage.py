@@ -1,3 +1,4 @@
+from typing import List
 from sqlalchemy import select
 
 from src.gears.db import DB
@@ -20,7 +21,7 @@ class MappingStorage:
 
     async def list(
         self, user_id: int, limit: int = 15, offset: int = 0
-    ) -> list[GetResult]:
+    ) -> List[GetResult]:
         try:
             async with self.db.session_maker() as session:
                 stmt = (
@@ -89,7 +90,7 @@ class MappingStorage:
 
     async def list_ingested(
         self, user_id: int, limit: int = 15, offset: int = 0
-    ) -> list[GetIngestedResult]:
+    ) -> List[GetIngestedResult]:
         try:
             async with self.db.session_maker() as session:
                 stmt = (
