@@ -80,11 +80,11 @@ class MappingStorage:
             async with self.db.session_maker() as session:
                 session.add(new_mapping)
                 await session.commit()
-                await session.refresh()
+                await session.refresh(new_mapping)
 
                 return CreateResult(id=new_mapping.id)
         except Exception as e:
-            return ErrInternal(
+            raise ErrInternal(
                 "file-mapping-storage: create: internal: {}".format(str(e))
             )
 
@@ -153,10 +153,10 @@ class MappingStorage:
             async with self.db.session_maker() as session:
                 session.add(new_mapping)
                 await session.commit()
-                await session.refresh()
+                await session.refresh(new_mapping)
 
                 return CreateIngestedResult(id=new_mapping.id)
         except Exception as e:
-            return ErrInternal(
+            raise ErrInternal(
                 "file-mapping-storage: create: internal: {}".format(str(e))
             )

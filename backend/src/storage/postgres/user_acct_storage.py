@@ -61,13 +61,6 @@ class UserAcctStorage:
                 "user-acct-storage: get_by_id: internal: {}".format(str(e))
             )
 
-        try:
-            user = result.scalar_one_or_none()
-        except Exception as e:
-            raise ErrInternal(
-                "user-acct-storage: get_by_id: internal: {}".format(str(e))
-            )
-
         if user is None:
             raise ErrNotFound(
                 "user-acct-storage: get_by_id: not found: id = {}".format(id)
@@ -92,13 +85,6 @@ class UserAcctStorage:
                 "user-acct-storage: get_by_username: internal: {}".format(str(e))
             )
 
-        try:
-            user = result.scalar_one_or_none()
-        except Exception as e:
-            raise ErrInternal(
-                "user-acct-storage: get_by_username: internal: {}".format(str(e))
-            )
-
         if user is None:
             raise ErrNotFound(
                 "user-acct-storage: get_by_username: not found: username = {}".format(
@@ -110,6 +96,7 @@ class UserAcctStorage:
             username=user.username,
             email=user.email,
             is_activated=user.is_activated,
+            activation_id=user.activation_id,
             password=user.password,
         )
 

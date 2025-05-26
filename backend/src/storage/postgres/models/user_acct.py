@@ -1,6 +1,7 @@
+from typing import List
 from sqlalchemy import String, Integer, Boolean, Index
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 import uuid
 
 from .base import Base
@@ -20,5 +21,10 @@ class UserAcct(Base):
     username: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(unique=True, nullable=False)
     password: Mapped[str] = mapped_column(nullable=False)
+
+    # Relationships
+    auth_tokens: Mapped[List["AuthToken"]] = relationship(back_populates="user")
+    file_mappings: Mapped[List["FileMapping"]] = relationship(back_populates="user")
+    ingested_files: Mapped[List["IngestedFileMapping"]] = relationship(back_populates="user")
 
     __table_args__ = (Index("ix_user_acct_username", "username"),)

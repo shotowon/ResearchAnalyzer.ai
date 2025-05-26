@@ -1,5 +1,6 @@
+from typing import List
 from sqlalchemy import String, Integer, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship, backref
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 from .user_acct import UserAcct
@@ -11,9 +12,13 @@ class IngestedFileMapping(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("user_accounts.id"))
-    user = relationship(UserAcct, backref=backref("auth_tokens", uselist=False))
     file_mapping_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("file_mappings.id")
     )
-    file_mapping = relationship(FileMapping, backref=backref("ingested", uselist=False))
     document_id: Mapped[str] = mapped_column(String(), nullable=False)
+
+    # Relationships
+    user: Mapped["UserAcct"] = relationship(back_populates="ingested_files")
+    file_mapping: Mapped["FileMapping"] = relationship(back_populates="ingested")
+    summaries: Mapped[List["Summary"]] = relationship(back_populates="file")
+    chats: Mapped[List["Chat"]] = relationship(back_populates="file")
